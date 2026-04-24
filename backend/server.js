@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth');
 const systemRoutes = require('./routes/system');
 const appsRoutes = require('./routes/apps');
 const dbRoutes = require('./routes/db');
+const mongodbRoutes = require('./routes/mongodb');
 const logsRoutes = require('./routes/logs');
 
 const app = express();
@@ -19,6 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/apps', appsRoutes);
 app.use('/api/db', dbRoutes);
+app.use('/api/mongodb', mongodbRoutes);
 app.use('/api/logs', logsRoutes);
 
 app.get('/', (req, res) => {

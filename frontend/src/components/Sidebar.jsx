@@ -9,7 +9,8 @@ const Sidebar = () => {
     const navItems = [
         { path: '/', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/apps', label: 'Apps (PM2)', icon: Server },
-        { path: '/db', label: 'Databases', icon: Database },
+        { path: '/db', label: 'MySQL', icon: Database },
+        { path: '/mongodb', label: 'MongoDB', icon: Database },
         { path: '/logs', label: 'Logs', icon: ScrollText },
     ];
 

@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Apps from './pages/Apps';
 import Databases from './pages/Databases';
+import MongoDB from './pages/MongoDB';
 import Logs from './pages/Logs';
 
 const ProtectedRoute = ({ children }) => {
@@ -30,6 +31,7 @@ function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="apps" element={<Apps />} />
                     <Route path="db" element={<Databases />} />
+                    <Route path="mongodb" element={<MongoDB />} />
                     <Route path="logs" element={<Logs />} />
                 </Route>
             </Routes>
