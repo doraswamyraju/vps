@@ -22,16 +22,10 @@ router.get('/status', async (req, res) => {
 
         let dbs = { databases: [] };
         try {
-            // Try listing databases on the connection level
-            dbs = await client.db().admin().listDatabases({ authorizedDatabases: true });
+            // Standard method for modern MongoDB driver
+            dbs = await client.listDatabases({ authorizedDatabases: true });
         } catch (e) {
-            console.error('CRITICAL: MongoDB listDatabases failed:', e.message);
-            // Fallback: try without the flag if the flag itself is rejected
-            try {
-                dbs = await client.db().admin().listDatabases();
-            } catch (e2) {
-                console.error('CRITICAL: Fallback listDatabases also failed:', e2.message);
-            }
+            console.error('MongoDB listDatabases error:', e.message);
         }
 
         res.json({
