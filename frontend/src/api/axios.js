@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api', // Will be dynamic in prod
+    // Use /api in production (handled by Nginx), and localhost in development
+    baseURL: import.meta.env.MODE === 'development' ? 'http://localhost:5000/api' : '/api',
 });
 
 api.interceptors.request.use(config => {
