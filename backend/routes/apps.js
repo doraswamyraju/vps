@@ -1,31 +1,27 @@
 const express = require('express');
-const pm2 = require('pm2');
+const { exec } = require('child_process');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 router.use(authMiddleware);
 
-// Connect to PM2 wrapper
-const executePm2 = (action, ...args) => {
+// Helper to execute PM2 commands via CLI
+const runPm2Command = (command) => {
     return new Promise((resolve, reject) => {
-        pm2.connect((err) => {
-            if (err) {
-                return reject(err);
+        exec(command, (err, stdout, stderr) => {
+            if (err) return reject(err);
+            try {
+                resolve(JSON.parse(stdout));
+            } catch (e) {
+                resolve(stdout);
             }
-            pm2[action](...args, (err, result) => {
-                pm2.disconnect();
-                if (err) {
-                    return reject(err);
-                }
-                resolve(result);
-            });
         });
     });
 };
 
 router.get('/', async (req, res) => {
     try {
-        const list = await executePm2('list');
+        const list = await runPm2Command('pm2 jlist');
         const apps = list.map(app => ({
             id: app.pm_id,
             name: app.name,
@@ -44,28 +40,28 @@ router.get('/', async (req, res) => {
 
 router.post('/start/:id', async (req, res) => {
     try {
-        await executePm2('start', req.params.id);
+        await runPm2Command(`pm2 start ${req.params.id}`);
         res.json({ message: `App ${req.params.id} started` });
     } catch (err) {
-        res.status(500).json({ message: 'Error starting application', error: err.message });
+        res.status(500).json({ message: 'Error starting application' });
     }
 });
 
 router.post('/stop/:id', async (req, res) => {
     try {
-        await executePm2('stop', req.params.id);
+        await runPm2Command(`pm2 stop ${req.params.id}`);
         res.json({ message: `App ${req.params.id} stopped` });
     } catch (err) {
-        res.status(500).json({ message: 'Error stopping application', error: err.message });
+        res.status(500).json({ message: 'Error stopping application' });
     }
 });
 
 router.post('/restart/:id', async (req, res) => {
     try {
-        await executePm2('restart', req.params.id);
+        await runPm2Command(`pm2 restart ${req.params.id}`);
         res.json({ message: `App ${req.params.id} restarted` });
     } catch (err) {
-        res.status(500).json({ message: 'Error restarting application', error: err.message });
+        res.status(500).json({ message: 'Error restarting application' });
     }
 });
 
