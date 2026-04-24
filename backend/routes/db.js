@@ -6,12 +6,19 @@ const router = express.Router();
 router.use(authMiddleware);
 
 const getDbConnection = async () => {
-    return mysql.createConnection({
+    const config = {
         host: process.env.MYSQL_HOST || 'localhost',
         user: process.env.MYSQL_USER || 'root',
         password: process.env.MYSQL_PASS || '',
         connectTimeout: 5000
-    });
+    };
+
+    if (process.env.MYSQL_SOCKET) {
+        config.socketPath = process.env.MYSQL_SOCKET;
+        delete config.host;
+    }
+
+    return mysql.createConnection(config);
 };
 
 router.get('/status', async (req, res) => {
