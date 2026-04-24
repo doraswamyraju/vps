@@ -22,9 +22,9 @@ router.get('/status', async (req, res) => {
 
         let dbs = { databases: [] };
         try {
-            dbs = await admin.listDatabases();
+            dbs = await admin.listDatabases({ authorizedDatabases: true });
         } catch (e) {
-            console.warn('Could not fetch MongoDB database list');
+            console.warn('Could not fetch MongoDB database list:', e.message);
         }
 
         res.json({
