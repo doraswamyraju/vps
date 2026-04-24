@@ -43,4 +43,36 @@ router.get('/status', async (req, res) => {
     }
 });
 
+router.get('/collections/:dbName', async (req, res) => {
+    const { dbName } = req.params;
+    const uri = process.env.MONGO_URI || 'mongodb://localhost:27017';
+    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+
+    try {
+        await client.connect();
+        const db = client.db(dbName);
+        const collections = await db.listCollections().toArray();
+        
+        // Also get stats for each collection
+        const detailedCollections = await Promise.all(collections.map(async (col) => {
+            try {
+                const stats = await db.command({ collStats: col.name });
+                return {
+                    name: col.name,
+                    count: stats.count,
+                    size: stats.size
+                };
+            } catch (e) {
+                return { name: col.name, count: '?', size: 0 };
+            }
+        }));
+
+        res.json(detailedCollections);
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to fetch collections', error: err.message });
+    } finally {
+        await client.close();
+    }
+});
+
 module.exports = router;
