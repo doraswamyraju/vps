@@ -22,10 +22,25 @@ router.get('/status', async (req, res) => {
 
         let dbs = { databases: [] };
         try {
-            // Standard method for modern MongoDB driver
-            dbs = await client.listDatabases({ authorizedDatabases: true });
+            // Method 1: Modern driver approach
+            const result = await client.db().admin().listDatabases({ authorizedDatabases: true });
+            dbs = result;
         } catch (e) {
-            console.error('MongoDB listDatabases error:', e.message);
+            console.warn('Method 1 failed, trying Method 2...');
+            try {
+                // Method 2: Connection level approach
+                const result = await client.listDatabases({ authorizedDatabases: true });
+                dbs = result;
+            } catch (e2) {
+                console.warn('Method 2 failed, trying Method 3...');
+                try {
+                    // Method 3: Direct command approach
+                    const result = await client.db('admin').command({ listDatabases: 1, authorizedDatabases: true });
+                    dbs = result;
+                } catch (e3) {
+                    console.error('All MongoDB list methods failed:', e3.message);
+                }
+            }
         }
 
         res.json({
