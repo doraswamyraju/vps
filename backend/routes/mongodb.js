@@ -12,14 +12,26 @@ router.get('/status', async (req, res) => {
     try {
         await client.connect();
         const admin = client.db('admin');
-        const info = await admin.command({ serverStatus: 1 });
-        const dbs = await admin.listDatabases();
+        
+        let info = {};
+        try {
+            info = await admin.command({ serverStatus: 1 });
+        } catch (e) {
+            console.warn('Could not fetch MongoDB serverStatus (insufficient permissions)');
+        }
+
+        let dbs = { databases: [] };
+        try {
+            dbs = await admin.listDatabases();
+        } catch (e) {
+            console.warn('Could not fetch MongoDB database list');
+        }
 
         res.json({
             status: 'online',
-            version: info.version,
-            uptime: info.uptime,
-            connections: info.connections.current,
+            version: info.version || 'Unknown',
+            uptime: info.uptime || 0,
+            connections: info.connections?.current || 0,
             databases: dbs.databases
         });
     } catch (err) {
