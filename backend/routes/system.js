@@ -45,4 +45,10 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+const { getHistory } = require('../utils/statsCollector');
+
+router.get('/history', async (req, res) => {
+    res.json(getHistory());
+});
+
 module.exports = router;

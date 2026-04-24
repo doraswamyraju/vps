@@ -70,43 +70,43 @@ const Apps = () => {
                     </div>
                 )}
                 {apps.map((app) => (
-                    <div key={app.pm_id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 transition-all hover:border-gray-700">
+                    <div key={app.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 transition-all hover:border-gray-700">
                         <div className="flex items-center gap-4 flex-1">
-                            <div className={`w-3 h-3 rounded-full ${app.pm2_env.status === 'online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
+                            <div className={`w-3 h-3 rounded-full ${app.status === 'online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
                             <div>
                                 <h3 className="text-xl font-bold text-white">{app.name}</h3>
                                 <div className="flex gap-4 mt-1 text-sm text-gray-400 font-mono">
-                                    <span>ID: {app.pm_id}</span>
-                                    <span>MEM: {(app.monit.memory / 1024 / 1024).toFixed(1)} MB</span>
-                                    <span>CPU: {app.monit.cpu}%</span>
-                                    <span>Restarts: {app.pm2_env.restart_time}</span>
+                                    <span>ID: {app.id}</span>
+                                    <span>MEM: {(app.memory / 1024 / 1024).toFixed(1)} MB</span>
+                                    <span>CPU: {app.cpu}%</span>
+                                    <span>Restarts: {app.restarts}</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2 w-full md:w-auto">
                             <button
-                                onClick={() => handleAction(app.pm_id, 'start')}
-                                disabled={app.pm2_env.status === 'online' || !!actionLoading}
+                                onClick={() => handleAction(app.id, 'start')}
+                                disabled={app.status === 'online' || !!actionLoading}
                                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-green-600 hover:text-white text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-transparent"
                             >
-                                {actionLoading === `start-${app.pm_id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                                {actionLoading === `start-${app.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                                 Start
                             </button>
                             <button
-                                onClick={() => handleAction(app.pm_id, 'restart')}
+                                onClick={() => handleAction(app.id, 'restart')}
                                 disabled={!!actionLoading}
                                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-blue-600 hover:text-white text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-transparent"
                             >
-                                {actionLoading === `restart-${app.pm_id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+                                {actionLoading === `restart-${app.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
                                 Restart
                             </button>
                             <button
-                                onClick={() => handleAction(app.pm_id, 'stop')}
-                                disabled={app.pm2_env.status !== 'online' || !!actionLoading}
+                                onClick={() => handleAction(app.id, 'stop')}
+                                disabled={app.status !== 'online' || !!actionLoading}
                                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-red-600 hover:text-white text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 hover:border-transparent"
                             >
-                                {actionLoading === `stop-${app.pm_id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
+                                {actionLoading === `stop-${app.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
                                 Stop
                             </button>
                         </div>

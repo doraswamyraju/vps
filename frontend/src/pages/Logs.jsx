@@ -60,7 +60,7 @@ const Logs = () => {
                     >
                         <option value="system">System Logs (Syslog)</option>
                         {apps.map(app => (
-                            <option key={app.pm_id} value={app.pm_id}>
+                            <option key={app.id} value={app.id}>
                                 {app.name} (PM2)
                             </option>
                         ))}

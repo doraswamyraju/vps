@@ -25,6 +25,9 @@ app.get('/', (req, res) => {
     res.send('VPS Dashboard API is running');
 });
 
+const { startStatsCollection } = require('./utils/statsCollector');
+
 app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
+    startStatsCollection();
 });
