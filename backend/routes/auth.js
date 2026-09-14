@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { getDbConnection, verifyPassword } = require('../utils/dbManager');
+const { getDbConnection, verifyPassword, hashPassword } = require('../utils/dbManager');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -20,10 +20,12 @@ router.post('/login', async (req, res) => {
         const [rows] = await connection.query(`
             SELECT u.id, u.name, u.username, u.email, u.password, u.role, u.status,
                    q.display_disk_gb, q.display_memory_gb, q.display_cpu_cores, q.display_bandwidth_gb,
-                   p.name as plan_name
+                   p.id as plan_id, p.name as plan_name, p.price as plan_price, p.interval_type as plan_interval, p.currency as plan_currency,
+                   s.status as subscription_status, s.current_period_end
             FROM users u
             LEFT JOIN user_quotas q ON u.id = q.user_id
             LEFT JOIN plans p ON q.plan_id = p.id
+            LEFT JOIN subscriptions s ON u.id = s.user_id
             WHERE u.username = ? OR (u.email IS NOT NULL AND u.email = ?)
         `, [username, username]);
 
@@ -44,7 +46,15 @@ router.post('/login', async (req, res) => {
                     username: user.username,
                     email: user.email,
                     role: user.role,
-                    plan: user.plan_name || 'Standard',
+                    plan: {
+                        id: user.plan_id,
+                        name: user.plan_name || 'Standard Cloud',
+                        price: user.plan_price || 0,
+                        interval: user.plan_interval || 'monthly',
+                        currency: user.plan_currency || 'INR',
+                        status: user.subscription_status || 'active',
+                        renewal_date: user.current_period_end
+                    },
                     quotas: {
                         display_disk_gb: user.display_disk_gb || 50,
                         display_memory_gb: user.display_memory_gb || 4,
@@ -80,7 +90,12 @@ router.post('/login', async (req, res) => {
             name: 'Super Administrator',
             username: adminUser,
             role: 'superadmin',
-            plan: 'Unlimited Server Admin',
+            plan: {
+                name: 'Unlimited Super Admin',
+                price: 0,
+                interval: 'lifetime',
+                status: 'active'
+            },
             quotas: null,
             resources: []
         };
@@ -91,8 +106,82 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ message: 'Invalid credentials' });
 });
 
-router.get('/me', authMiddleware, async (req, res) => {
-    res.json({ user: req.user });
+router.get('/profile', authMiddleware, async (req, res) => {
+    let connection;
+    try {
+        connection = await getDbConnection(true);
+        const [rows] = await connection.query(`
+            SELECT u.id, u.name, u.username, u.email, u.role, u.status, u.created_at,
+                   q.display_disk_gb, q.display_memory_gb, q.display_cpu_cores, q.display_bandwidth_gb,
+                   p.name as plan_name, p.price as plan_price, p.currency as plan_currency, p.interval_type as plan_interval,
+                   s.status as subscription_status, s.current_period_end
+            FROM users u
+            LEFT JOIN user_quotas q ON u.id = q.user_id
+            LEFT JOIN plans p ON q.plan_id = p.id
+            LEFT JOIN subscriptions s ON u.id = s.user_id
+            WHERE u.id = ?
+        `, [req.user.id]);
+
+        if (rows.length > 0) {
+            const user = rows[0];
+            const [resources] = await connection.query('SELECT resource_type, resource_identifier, permissions FROM user_resources WHERE user_id = ?', [user.id]);
+            return res.json({
+                user: {
+                    ...user,
+                    resources: resources.map(r => ({
+                        type: r.resource_type,
+                        identifier: r.resource_identifier,
+                        permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : r.permissions
+                    }))
+                }
+            });
+        }
+        res.json({ user: req.user });
+    } catch (err) {
+        res.json({ user: req.user });
+    } finally {
+        if (connection) {
+            try { await connection.end(); } catch (e) {}
+        }
+    }
+});
+
+router.put('/profile', authMiddleware, async (req, res) => {
+    const { name, email, currentPassword, newPassword } = req.body;
+    let connection;
+    try {
+        connection = await getDbConnection(true);
+        const [rows] = await connection.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'User not found in database' });
+        }
+
+        const user = rows[0];
+
+        if (newPassword) {
+            if (!currentPassword) {
+                return res.status(400).json({ message: 'Current password is required to set new password' });
+            }
+            const isValid = verifyPassword(currentPassword, user.password);
+            if (!isValid) {
+                return res.status(400).json({ message: 'Incorrect current password' });
+            }
+            const hashed = hashPassword(newPassword);
+            await connection.query('UPDATE users SET name = ?, email = ?, password = ? WHERE id = ?', [name || user.name, email || user.email, hashed, user.id]);
+        } else {
+            await connection.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [name || user.name, email || user.email, user.id]);
+        }
+
+        res.json({ success: true, message: 'Profile updated successfully' });
+    } catch (err) {
+        console.error('Error updating profile:', err);
+        res.status(500).json({ message: 'Failed to update profile', error: err.message });
+    } finally {
+        if (connection) {
+            try { await connection.end(); } catch (e) {}
+        }
+    }
 });
 
 module.exports = router;

@@ -13,11 +13,39 @@ const isAppAllowed = (appName, user) => {
     return allowed.includes(String(appName).toLowerCase());
 };
 
-router.get('/:app', (req, res) => {
+// System logs (Super Admin only)
+router.get('/system', (req, res) => {
+    if (req.user?.role !== 'superadmin') {
+        return res.status(403).json({ message: 'Forbidden: System logs are restricted to Super Admin' });
+    }
+
+    exec('journalctl -n 100 --no-pager 2>/dev/null || tail -n 100 /var/log/syslog 2>/dev/null', (error, stdout, stderr) => {
+        if (error && !stdout) {
+            return res.json({ logs: 'No system logs accessible or service running on Windows/restricted environment.' });
+        }
+        res.json({ logs: stdout || stderr || 'No system logs available.' });
+    });
+});
+
+// PM2 App logs (supports both /app/:app and /:app)
+const fetchAppLogs = (req, res) => {
     const appName = req.params.app;
-    
+
+    if (!appName) {
+        return res.status(400).json({ message: 'Application identifier required' });
+    }
+
+    if (appName === 'system') {
+        if (req.user?.role !== 'superadmin') {
+            return res.status(403).json({ message: 'Forbidden: System logs are restricted to Super Admin' });
+        }
+        return exec('journalctl -n 100 --no-pager 2>/dev/null || tail -n 100 /var/log/syslog 2>/dev/null', (error, stdout) => {
+            res.json({ logs: stdout || 'No system logs available.' });
+        });
+    }
+
     // Validate appName to prevent command injection
-    if (!/^[a-zA-Z0-9_-]+$/.test(appName)) {
+    if (!/^[a-zA-Z0-9_.-]+$/.test(appName)) {
         return res.status(400).json({ message: 'Invalid application name' });
     }
 
@@ -25,14 +53,15 @@ router.get('/:app', (req, res) => {
         return res.status(403).json({ message: 'Unauthorized to view logs for this application' });
     }
 
-    // pm2 logs [app_name] --lines 100 --nostream
-    exec(`pm2 logs ${appName} --lines 100 --nostream`, (error, stdout, stderr) => {
-        if (error) {
-            console.error('Error fetching logs:', error);
-            return res.json({ logs: error.message + '\n' + stdout + '\n' + stderr });
+    exec(`pm2 logs ${appName} --lines 100 --nostream`, { maxBuffer: 1024 * 1024 * 2 }, (error, stdout, stderr) => {
+        if (error && !stdout) {
+            return res.json({ logs: `No logs found or process not active: ${appName}` });
         }
-        res.json({ logs: stdout + '\n' + stderr });
+        res.json({ logs: stdout || stderr || `Application ${appName} is running with no recent log entries.` });
     });
-});
+};
+
+router.get('/app/:app', fetchAppLogs);
+router.get('/:app', fetchAppLogs);
 
 module.exports = router;

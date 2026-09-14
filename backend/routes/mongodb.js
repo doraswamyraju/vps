@@ -5,6 +5,14 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const router = express.Router();
 router.use(authMiddleware);
 
+const isMongoDbAllowed = (dbName, user) => {
+    if (!user || user.role === 'superadmin') return true;
+    const allowed = (user.resources || [])
+        .filter(r => r.type === 'mongo_db')
+        .map(r => r.identifier.toLowerCase());
+    return allowed.includes(String(dbName).toLowerCase());
+};
+
 router.get('/status', async (req, res) => {
     const uri = process.env.MONGO_URI || 'mongodb://localhost:27017';
     const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
@@ -22,19 +30,14 @@ router.get('/status', async (req, res) => {
 
         let dbs = { databases: [] };
         try {
-            // Method 1: Modern driver approach
             const result = await client.db().admin().listDatabases({ authorizedDatabases: true });
             dbs = result;
         } catch (e) {
-            console.warn('Method 1 failed, trying Method 2...');
             try {
-                // Method 2: Connection level approach
                 const result = await client.listDatabases({ authorizedDatabases: true });
                 dbs = result;
             } catch (e2) {
-                console.warn('Method 2 failed, trying Method 3...');
                 try {
-                    // Method 3: Direct command approach
                     const result = await client.db('admin').command({ listDatabases: 1, authorizedDatabases: true });
                     dbs = result;
                 } catch (e3) {
@@ -43,12 +46,19 @@ router.get('/status', async (req, res) => {
             }
         }
 
+        let databases = dbs.databases || [];
+
+        // Filter databases for Tenant Admin
+        if (req.user?.role !== 'superadmin') {
+            databases = databases.filter(db => isMongoDbAllowed(db.name, req.user));
+        }
+
         res.json({
             status: 'online',
             version: info.version || 'Unknown',
             uptime: info.uptime || 0,
             connections: info.connections?.current || 0,
-            databases: dbs.databases
+            databases
         });
     } catch (err) {
         console.error('MongoDB connection error:', err);
@@ -60,6 +70,11 @@ router.get('/status', async (req, res) => {
 
 router.get('/collections/:dbName', async (req, res) => {
     const { dbName } = req.params;
+
+    if (!isMongoDbAllowed(dbName, req.user)) {
+        return res.status(403).json({ message: 'Forbidden: Access to this MongoDB database is not permitted.' });
+    }
+
     const uri = process.env.MONGO_URI || 'mongodb://localhost:27017';
     const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
 

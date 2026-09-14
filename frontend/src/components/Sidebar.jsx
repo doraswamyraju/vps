@@ -8,6 +8,7 @@ import {
     FolderOpen,
     Users,
     CreditCard,
+    UserCheck,
     LogOut,
     Shield
 } from 'lucide-react';
@@ -89,6 +90,25 @@ const Sidebar = () => {
                         ))}
                     </div>
                 )}
+
+                <div className="space-y-1 pt-2 border-t border-gray-800/80">
+                    <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">
+                        Account
+                    </p>
+                    <NavLink
+                        to="/profile"
+                        className={({ isActive }) =>
+                            `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                                isActive 
+                                    ? 'bg-blue-600 text-white shadow-sm' 
+                                    : 'hover:bg-gray-800 hover:text-white'
+                            }`
+                        }
+                    >
+                        <UserCheck className="w-5 h-5" />
+                        <span className="font-medium">Plan & Profile</span>
+                    </NavLink>
+                </div>
             </nav>
 
             <div className="p-4 border-t border-gray-800">

@@ -115,6 +115,14 @@ router.get('/status', async (req, res) => {
                 .map(name => ({ name, tableCount: 0, sizeBytes: 0 }));
         }
 
+        // Filter databases for Tenant Admin
+        if (req.user?.role !== 'superadmin') {
+            const allowedDbs = (req.user?.resources || [])
+                .filter(r => r.type === 'mysql_db')
+                .map(r => r.identifier.toLowerCase());
+            databases = databases.filter(db => allowedDbs.includes(db.name.toLowerCase()));
+        }
+
         res.json({
             status: 'online',
             serviceStatus: 'active',

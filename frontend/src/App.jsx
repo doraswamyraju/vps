@@ -11,6 +11,7 @@ import Logs from './pages/Logs';
 import FileManager from './pages/FileManager';
 import Users from './pages/Users';
 import Plans from './pages/Plans';
+import Profile from './pages/Profile';
 
 const ProtectedRoute = ({ children }) => {
     const { token } = React.useContext(AuthContext);
@@ -39,6 +40,7 @@ function App() {
                     <Route path="logs" element={<Logs />} />
                     <Route path="users" element={<Users />} />
                     <Route path="plans" element={<Plans />} />
+                    <Route path="profile" element={<Profile />} />
                 </Route>
             </Routes>
         </BrowserRouter>
