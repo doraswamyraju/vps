@@ -51,7 +51,11 @@ const Dashboard = () => {
                 api.get('/system/history')
             ]);
             setStats(statsRes.data);
-            setHistory(historyRes.data);
+            const localizedHistory = (historyRes.data || []).map(item => ({
+                ...item,
+                time: item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : item.time
+            }));
+            setHistory(localizedHistory);
             setError(null);
         } catch (err) {
             setError('Failed to fetch system data');
