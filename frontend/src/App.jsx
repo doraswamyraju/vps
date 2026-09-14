@@ -9,6 +9,8 @@ import Databases from './pages/Databases';
 import MongoDB from './pages/MongoDB';
 import Logs from './pages/Logs';
 import FileManager from './pages/FileManager';
+import Users from './pages/Users';
+import Plans from './pages/Plans';
 
 const ProtectedRoute = ({ children }) => {
     const { token } = React.useContext(AuthContext);
@@ -35,6 +37,8 @@ function App() {
                     <Route path="db" element={<Databases />} />
                     <Route path="mongodb" element={<MongoDB />} />
                     <Route path="logs" element={<Logs />} />
+                    <Route path="users" element={<Users />} />
+                    <Route path="plans" element={<Plans />} />
                 </Route>
             </Routes>
         </BrowserRouter>

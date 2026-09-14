@@ -19,10 +19,18 @@ const runPm2Command = (command) => {
     });
 };
 
+const isAppAllowed = (app, user) => {
+    if (!user || user.role === 'superadmin') return true;
+    const allowed = (user.resources || [])
+        .filter(r => r.type === 'pm2_app')
+        .map(r => r.identifier.toLowerCase());
+    return allowed.includes(String(app.name).toLowerCase()) || allowed.includes(String(app.id));
+};
+
 router.get('/', async (req, res) => {
     try {
         const list = await runPm2Command('pm2 jlist');
-        const apps = list.map(app => ({
+        let apps = list.map(app => ({
             id: app.pm_id,
             name: app.name,
             status: app.pm2_env.status,
@@ -31,6 +39,12 @@ router.get('/', async (req, res) => {
             cpu: app.monit ? app.monit.cpu : 0,
             memory: app.monit ? app.monit.memory : 0
         }));
+
+        // Filter for Tenant Admin
+        if (req.user?.role !== 'superadmin') {
+            apps = apps.filter(app => isAppAllowed(app, req.user));
+        }
+
         res.json(apps);
     } catch (err) {
         console.error('Error fetching PM2 apps:', err);
@@ -39,27 +53,39 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/start/:id', async (req, res) => {
+    const appId = req.params.id;
     try {
-        await runPm2Command(`pm2 start ${req.params.id}`);
-        res.json({ message: `App ${req.params.id} started` });
+        if (req.user?.role !== 'superadmin' && !isAppAllowed({ id: appId, name: appId }, req.user)) {
+            return res.status(403).json({ message: 'Unauthorized for this application' });
+        }
+        await runPm2Command(`pm2 start ${appId}`);
+        res.json({ message: `App ${appId} started` });
     } catch (err) {
         res.status(500).json({ message: 'Error starting application' });
     }
 });
 
 router.post('/stop/:id', async (req, res) => {
+    const appId = req.params.id;
     try {
-        await runPm2Command(`pm2 stop ${req.params.id}`);
-        res.json({ message: `App ${req.params.id} stopped` });
+        if (req.user?.role !== 'superadmin' && !isAppAllowed({ id: appId, name: appId }, req.user)) {
+            return res.status(403).json({ message: 'Unauthorized for this application' });
+        }
+        await runPm2Command(`pm2 stop ${appId}`);
+        res.json({ message: `App ${appId} stopped` });
     } catch (err) {
         res.status(500).json({ message: 'Error stopping application' });
     }
 });
 
 router.post('/restart/:id', async (req, res) => {
+    const appId = req.params.id;
     try {
-        await runPm2Command(`pm2 restart ${req.params.id}`);
-        res.json({ message: `App ${req.params.id} restarted` });
+        if (req.user?.role !== 'superadmin' && !isAppAllowed({ id: appId, name: appId }, req.user)) {
+            return res.status(403).json({ message: 'Unauthorized for this application' });
+        }
+        await runPm2Command(`pm2 restart ${appId}`);
+        res.json({ message: `App ${appId} restarted` });
     } catch (err) {
         res.status(500).json({ message: 'Error restarting application' });
     }

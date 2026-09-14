@@ -8,13 +8,32 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const router = express.Router();
 router.use(authMiddleware);
 
-// Helper: Normalize path and resolve default
-const resolveSafePath = (targetPath) => {
-    if (!targetPath || targetPath === '/' || targetPath === '.') {
-        // If Linux/Unix use '/', if Windows use process.cwd() or root drive 'C:\\'
+// Helper: Determine user root directory boundary
+const getUserAllowedBase = (user) => {
+    if (!user || user.role === 'superadmin') {
         return os.platform() === 'win32' ? path.parse(process.cwd()).root : '/';
     }
-    return path.resolve(targetPath);
+    const folderRes = (user.resources || []).find(r => r.type === 'file_path');
+    if (folderRes && folderRes.identifier) {
+        return path.resolve(folderRes.identifier);
+    }
+    return os.platform() === 'win32' ? path.parse(process.cwd()).root : '/var/www';
+};
+
+// Helper: Normalize path and enforce tenant boundary
+const resolveSafePath = (targetPath, user) => {
+    const baseRoot = getUserAllowedBase(user);
+    if (!targetPath || targetPath === '/' || targetPath === '.') {
+        return baseRoot;
+    }
+    const resolved = path.resolve(targetPath);
+    if (user && user.role !== 'superadmin') {
+        // Prevent escaping allocated directory
+        if (!resolved.startsWith(baseRoot)) {
+            return baseRoot;
+        }
+    }
+    return resolved;
 };
 
 // Helper: Format permissions
@@ -25,7 +44,7 @@ const getPermissions = (mode) => {
 // 1. List files and directories in path
 router.get('/list', async (req, res) => {
     const rawPath = req.query.path || '/';
-    const currentPath = resolveSafePath(rawPath);
+    const currentPath = resolveSafePath(rawPath, req.user);
 
     try {
         if (!fs.existsSync(currentPath)) {
@@ -106,7 +125,7 @@ const CACHE_TTL_MS = 60 * 1000; // 1 minute
 // 2. Disk Storage Breakdown for a directory
 router.get('/storage-breakdown', async (req, res) => {
     const rawPath = req.query.path || '/';
-    const currentPath = resolveSafePath(rawPath);
+    const currentPath = resolveSafePath(rawPath, req.user);
 
     // Check cache
     const cached = breakdownCache.get(currentPath);
@@ -220,7 +239,7 @@ router.get('/content', async (req, res) => {
         return res.status(400).json({ message: 'Path parameter required' });
     }
 
-    const filePath = resolveSafePath(rawPath);
+    const filePath = resolveSafePath(rawPath, req.user);
     try {
         const stat = fs.statSync(filePath);
         if (stat.isDirectory()) {
@@ -276,7 +295,7 @@ router.post('/save', async (req, res) => {
         return res.status(400).json({ message: 'Path is required' });
     }
 
-    const filePath = resolveSafePath(rawPath);
+    const filePath = resolveSafePath(rawPath, req.user);
     try {
         await fs.promises.writeFile(filePath, content, 'utf-8');
         res.json({ success: true, message: 'File saved successfully' });
@@ -295,7 +314,7 @@ router.post('/create', async (req, res) => {
 
     // Sanitize name to prevent path traversal in name
     const sanitizedName = path.basename(name);
-    const targetPath = path.join(resolveSafePath(rawParent), sanitizedName);
+    const targetPath = path.join(resolveSafePath(rawParent, req.user), sanitizedName);
 
     try {
         if (fs.existsSync(targetPath)) {
@@ -322,7 +341,7 @@ router.post('/rename', async (req, res) => {
         return res.status(400).json({ message: 'Old path and new name are required' });
     }
 
-    const oldPath = resolveSafePath(rawOld);
+    const oldPath = resolveSafePath(rawOld, req.user);
     const newPath = path.join(path.dirname(oldPath), path.basename(newName));
 
     try {
@@ -348,7 +367,7 @@ router.delete('/delete', async (req, res) => {
         return res.status(400).json({ message: 'Path is required' });
     }
 
-    const targetPath = resolveSafePath(rawPath);
+    const targetPath = resolveSafePath(rawPath, req.user);
 
     // Guard against deleting root
     if (targetPath === '/' || targetPath === path.parse(targetPath).root) {
@@ -381,7 +400,7 @@ router.get('/download', (req, res) => {
         return res.status(400).json({ message: 'Path parameter required' });
     }
 
-    const filePath = resolveSafePath(rawPath);
+    const filePath = resolveSafePath(rawPath, req.user);
     try {
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({ message: 'File not found' });
