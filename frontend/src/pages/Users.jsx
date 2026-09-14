@@ -5,8 +5,7 @@ import {
     UserPlus,
     Shield,
     HardDrive,
-    Cpu,
-    MemoryStick,
+    CreditCard,
     Layers,
     Folder,
     Database,
@@ -19,7 +18,11 @@ import {
     AlertCircle,
     X,
     Plus,
-    RefreshCw
+    RefreshCw,
+    ToggleLeft,
+    ToggleRight,
+    Calendar,
+    IndianRupee
 } from 'lucide-react';
 
 const Users = () => {
@@ -39,6 +42,11 @@ const Users = () => {
         role: 'admin',
         status: 'active',
         plan_id: '',
+        plan_name: 'Starter Cloud',
+        custom_price: 499,
+        currency: 'INR',
+        interval_type: 'monthly',
+        renewal_date: '',
         quotas: {
             display_disk_gb: 100,
             display_memory_gb: 8,
@@ -73,8 +81,31 @@ const Users = () => {
         fetchData();
     }, []);
 
+    const handlePlanSelect = (selectedPlanId) => {
+        const found = plans.find(p => String(p.id) === String(selectedPlanId));
+        if (found) {
+            setFormData(prev => ({
+                ...prev,
+                plan_id: found.id,
+                plan_name: found.name,
+                custom_price: found.price,
+                currency: found.currency || 'INR',
+                interval_type: found.interval_type || 'monthly',
+                quotas: {
+                    display_disk_gb: found.display_disk_gb || 100,
+                    display_memory_gb: found.display_memory_gb || 8,
+                    display_cpu_cores: found.display_cpu_cores || 4,
+                    display_bandwidth_gb: found.display_bandwidth_gb || 1000
+                }
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, plan_id: selectedPlanId }));
+        }
+    };
+
     const handleOpenCreateModal = () => {
         setEditingUser(null);
+        const defaultPlan = plans[0];
         setFormData({
             name: '',
             username: '',
@@ -82,12 +113,17 @@ const Users = () => {
             password: '',
             role: 'admin',
             status: 'active',
-            plan_id: plans[0]?.id || '',
+            plan_id: defaultPlan?.id || '',
+            plan_name: defaultPlan?.name || 'Custom Plan',
+            custom_price: defaultPlan?.price !== undefined ? defaultPlan.price : 499,
+            currency: defaultPlan?.currency || 'INR',
+            interval_type: defaultPlan?.interval_type || 'monthly',
+            renewal_date: '',
             quotas: {
-                display_disk_gb: 100,
-                display_memory_gb: 8,
-                display_cpu_cores: 4,
-                display_bandwidth_gb: 1000
+                display_disk_gb: defaultPlan?.display_disk_gb || 100,
+                display_memory_gb: defaultPlan?.display_memory_gb || 8,
+                display_cpu_cores: defaultPlan?.display_cpu_cores || 4,
+                display_bandwidth_gb: defaultPlan?.display_bandwidth_gb || 1000
             },
             resources: []
         });
@@ -96,14 +132,20 @@ const Users = () => {
 
     const handleOpenEditModal = (user) => {
         setEditingUser(user);
+        const formattedRenewal = user.renewal_date ? new Date(user.renewal_date).toISOString().split('T')[0] : '';
         setFormData({
             name: user.name || '',
             username: user.username || '',
             email: user.email || '',
-            password: '', // leave empty to not change
+            password: '', // leave empty to keep current
             role: user.role || 'admin',
             status: user.status || 'active',
             plan_id: user.plan_id || '',
+            plan_name: user.plan_name || 'Standard Plan',
+            custom_price: user.custom_price !== undefined ? user.custom_price : 499,
+            currency: user.currency || 'INR',
+            interval_type: user.interval_type || 'monthly',
+            renewal_date: formattedRenewal,
             quotas: {
                 display_disk_gb: user.display_disk_gb || 100,
                 display_memory_gb: user.display_memory_gb || 8,
@@ -116,6 +158,17 @@ const Users = () => {
             }))
         });
         setModalOpen(true);
+    };
+
+    const handleToggleStatus = async (user) => {
+        if (user.role === 'superadmin') return;
+        const newStatus = user.status === 'active' ? 'suspended' : 'active';
+        try {
+            await api.patch(`/users/${user.id}/status`, { status: newStatus });
+            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to update user status');
+        }
     };
 
     const handleAddResource = () => {
@@ -176,7 +229,7 @@ const Users = () => {
                         Users & Tenant Management
                     </h1>
                     <p className="text-sm text-gray-400 mt-1">
-                        Manage resource admins, assign applications, and configure custom virtual quotas.
+                        Configure user-wise pricing, activate/suspend client access, and assign isolated resources.
                     </p>
                 </div>
 
@@ -205,10 +258,10 @@ const Users = () => {
                         <UsersIcon className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-gray-400 text-xs font-medium uppercase">Total Users</p>
+                        <p className="text-gray-400 text-xs font-medium uppercase">Total Tenants</p>
                         <h3 className="text-2xl font-bold text-white mt-0.5">{users.length}</h3>
                         <p className="text-xs text-gray-500 mt-0.5">
-                            {users.filter(u => u.role === 'admin').length} Tenant Admins
+                            {users.filter(u => u.status === 'active').length} Active Accounts
                         </p>
                     </div>
                 </div>
@@ -220,20 +273,20 @@ const Users = () => {
                     <div>
                         <p className="text-gray-400 text-xs font-medium uppercase">Allocated Virtual Disk</p>
                         <h3 className="text-2xl font-bold text-white mt-0.5">{totalAllocatedDisk} GB</h3>
-                        <p className="text-xs text-purple-400 mt-0.5">Virtual Quotas active</p>
+                        <p className="text-xs text-purple-400 mt-0.5">Virtual Storage Limits</p>
                     </div>
                 </div>
 
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center gap-4">
                     <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-lg">
-                        <Shield className="w-6 h-6" />
+                        <CreditCard className="w-6 h-6" />
                     </div>
                     <div>
-                        <p className="text-gray-400 text-xs font-medium uppercase">Super Admins</p>
+                        <p className="text-gray-400 text-xs font-medium uppercase">User-Wise Billing</p>
                         <h3 className="text-2xl font-bold text-white mt-0.5">
-                            {users.filter(u => u.role === 'superadmin').length}
+                            {users.filter(u => u.role === 'admin').length} Subscriptions
                         </h3>
-                        <p className="text-xs text-gray-500 mt-0.5">Full Server Access</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Custom client rates</p>
                     </div>
                 </div>
             </div>
@@ -253,10 +306,10 @@ const Users = () => {
                             <thead>
                                 <tr className="border-b border-gray-800 bg-gray-950/50 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                                     <th className="py-3.5 px-4">User</th>
-                                    <th className="py-3.5 px-4">Role & Plan</th>
+                                    <th className="py-3.5 px-4">Plan & Custom Price</th>
                                     <th className="py-3.5 px-4">Virtual Quotas</th>
                                     <th className="py-3.5 px-4">Assigned Resources</th>
-                                    <th className="py-3.5 px-4">Status</th>
+                                    <th className="py-3.5 px-4">Access Status</th>
                                     <th className="py-3.5 px-4 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -270,24 +323,24 @@ const Users = () => {
                                             </div>
                                         </td>
                                         <td className="py-3.5 px-4">
-                                            <div className="space-y-1">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                                    user.role === 'superadmin' 
-                                                        ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
-                                                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                                }`}>
-                                                    {user.role === 'superadmin' ? 'Super Admin' : 'Resource Admin'}
+                                            {user.role === 'superadmin' ? (
+                                                <span className="text-xs text-purple-400 font-semibold bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                                                    Super Admin
                                                 </span>
-                                                {user.plan_name && (
-                                                    <div className="text-xs text-gray-400 font-medium">
-                                                        {user.plan_name}
+                                            ) : (
+                                                <div className="space-y-0.5">
+                                                    <div className="font-semibold text-white text-xs">
+                                                        {user.plan_name || 'Standard Plan'}
                                                     </div>
-                                                )}
-                                            </div>
+                                                    <div className="text-xs text-emerald-400 font-mono font-medium">
+                                                        {user.currency === 'INR' ? '₹' : '$'}{user.custom_price || 0} / {user.interval_type || 'mo'}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="py-3.5 px-4">
                                             {user.role === 'superadmin' ? (
-                                                <span className="text-xs text-gray-500 font-mono">Physical Hardware (Full)</span>
+                                                <span className="text-xs text-gray-500 font-mono">Physical Hardware</span>
                                             ) : (
                                                 <div className="flex flex-wrap gap-1.5 text-xs">
                                                     <span className="bg-gray-800 text-gray-300 px-2 py-0.5 rounded font-mono border border-gray-700">
@@ -316,6 +369,7 @@ const Users = () => {
                                                         >
                                                             {r.resource_type === 'pm2_app' && <Server className="w-3 h-3" />}
                                                             {r.resource_type === 'mysql_db' && <Database className="w-3 h-3 text-amber-400" />}
+                                                            {r.resource_type === 'mongo_db' && <Database className="w-3 h-3 text-emerald-400" />}
                                                             {r.resource_type === 'file_path' && <Folder className="w-3 h-3 text-yellow-400" />}
                                                             {r.resource_identifier}
                                                         </span>
@@ -324,21 +378,40 @@ const Users = () => {
                                             )}
                                         </td>
                                         <td className="py-3.5 px-4">
-                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                                                user.status === 'active' 
-                                                    ? 'bg-emerald-500/10 text-emerald-400' 
-                                                    : 'bg-red-500/10 text-red-400'
-                                            }`}>
-                                                {user.status === 'active' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                                                {user.status}
-                                            </span>
+                                            {user.role === 'superadmin' ? (
+                                                <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
+                                                    <CheckCircle2 className="w-3.5 h-3.5" /> Active
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleToggleStatus(user)}
+                                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                                                        user.status === 'active'
+                                                            ? 'bg-emerald-500/10 text-emerald-400 hover:bg-red-500/10 hover:text-red-400 border border-emerald-500/30'
+                                                            : 'bg-red-500/10 text-red-400 hover:bg-emerald-500/10 hover:text-emerald-400 border border-red-500/30'
+                                                    }`}
+                                                    title={`Click to ${user.status === 'active' ? 'Suspend' : 'Activate'} user`}
+                                                >
+                                                    {user.status === 'active' ? (
+                                                        <>
+                                                            <CheckCircle2 className="w-3 h-3" />
+                                                            <span>Active</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <XCircle className="w-3 h-3" />
+                                                            <span>Suspended</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
                                         </td>
                                         <td className="py-3.5 px-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => handleOpenEditModal(user)}
                                                     className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-gray-800 rounded transition-colors"
-                                                    title="Edit User & Quotas"
+                                                    title="Edit User, Pricing & Quotas"
                                                 >
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
@@ -371,7 +444,7 @@ const Users = () => {
                         <div className="flex items-center justify-between border-b border-gray-800 pb-3">
                             <h3 className="font-bold text-white text-lg flex items-center gap-2">
                                 <UserPlus className="w-5 h-5 text-blue-500" />
-                                {editingUser ? 'Edit User & Virtual Quotas' : 'Create New Tenant Admin'}
+                                {editingUser ? 'Edit User, Pricing & Virtual Quotas' : 'Create New Tenant Admin'}
                             </h3>
                             <button
                                 type="button"
@@ -391,7 +464,7 @@ const Users = () => {
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="e.g. MedMarg Admin"
+                                    placeholder="e.g. VR Here BMS"
                                     className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                                 />
                             </div>
@@ -402,7 +475,7 @@ const Users = () => {
                                     required
                                     value={formData.username}
                                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                    placeholder="medmarg_admin"
+                                    placeholder="vrherebms"
                                     className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                                 />
                             </div>
@@ -412,7 +485,7 @@ const Users = () => {
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    placeholder="admin@medmarg.com"
+                                    placeholder="admin@vrhere.com"
                                     className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                                 />
                             </div>
@@ -441,17 +514,101 @@ const Users = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-400 mb-1">Status</label>
+                                <label className="block text-xs font-medium text-gray-400 mb-1">Access Status</label>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                                     className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="suspended">Suspended</option>
+                                    <option value="active">Active (Access Granted)</option>
+                                    <option value="suspended">Suspended (Access Blocked)</option>
                                 </select>
                             </div>
                         </div>
+
+                        {/* CUSTOM USER-WISE PRICING & PLAN */}
+                        {formData.role === 'admin' && (
+                            <div className="bg-gray-950/60 border border-gray-800 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-white text-sm flex items-center gap-2">
+                                        <CreditCard className="w-4 h-4 text-emerald-400" />
+                                        User-Wise Pricing & Subscription Plan
+                                    </h4>
+                                    <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                        Custom Client Rates
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-[11px] text-gray-400 mb-1">Base Plan Template</label>
+                                        <select
+                                            value={formData.plan_id}
+                                            onChange={(e) => handlePlanSelect(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white"
+                                        >
+                                            <option value="">Custom Package</option>
+                                            {plans.map(p => (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.name} ({p.currency === 'INR' ? '₹' : '$'}{p.price}/{p.interval_type})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] text-gray-400 mb-1">Custom Plan Name</label>
+                                        <input
+                                            type="text"
+                                            value={formData.plan_name}
+                                            onChange={(e) => setFormData({ ...formData, plan_name: e.target.value })}
+                                            placeholder="e.g. Dedicated Pro Plan"
+                                            className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] text-gray-400 mb-1">Custom Price</label>
+                                        <div className="flex items-center gap-1">
+                                            <select
+                                                value={formData.currency}
+                                                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                                                className="bg-gray-900 border border-gray-800 rounded-lg px-2 py-1.5 text-xs text-white"
+                                            >
+                                                <option value="INR">₹ INR</option>
+                                                <option value="USD">$ USD</option>
+                                            </select>
+                                            <input
+                                                type="number"
+                                                value={formData.custom_price}
+                                                onChange={(e) => setFormData({ ...formData, custom_price: parseFloat(e.target.value) || 0 })}
+                                                className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] text-gray-400 mb-1">Billing Interval</label>
+                                        <select
+                                            value={formData.interval_type}
+                                            onChange={(e) => setFormData({ ...formData, interval_type: e.target.value })}
+                                            className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white"
+                                        >
+                                            <option value="monthly">Monthly</option>
+                                            <option value="yearly">Yearly</option>
+                                            <option value="quarterly">Quarterly</option>
+                                            <option value="one-time">One-Time / Custom</option>
+                                        </select>
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-[11px] text-gray-400 mb-1">Next Renewal / Expiration Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData.renewal_date}
+                                            onChange={(e) => setFormData({ ...formData, renewal_date: e.target.value })}
+                                            className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* VIRTUAL QUOTAS CONFIGURATION */}
                         {formData.role === 'admin' && (
@@ -465,9 +622,6 @@ const Users = () => {
                                         Custom Display Metrics
                                     </span>
                                 </div>
-                                <p className="text-xs text-gray-400">
-                                    Set the custom storage and compute limits shown on this user's dashboard:
-                                </p>
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
                                     <div>
@@ -541,16 +695,19 @@ const Users = () => {
                                     >
                                         <option value="pm2_app">PM2 App Name</option>
                                         <option value="mysql_db">MySQL Database</option>
+                                        <option value="mongo_db">MongoDB Database</option>
                                         <option value="file_path">Directory Path</option>
                                     </select>
                                     <input
                                         type="text"
                                         placeholder={
                                             newResourceType === 'pm2_app' 
-                                                ? 'e.g. medmarg-api' 
+                                                ? 'e.g. vrhere-api' 
                                                 : newResourceType === 'mysql_db' 
-                                                ? 'e.g. medmarg_db' 
-                                                : 'e.g. /var/www/medmarg'
+                                                ? 'e.g. vrhere_db' 
+                                                : newResourceType === 'mongo_db' 
+                                                ? 'e.g. vrhere' 
+                                                : 'e.g. /var/www/vrhere'
                                         }
                                         value={newResourceIdentifier}
                                         onChange={(e) => setNewResourceIdentifier(e.target.value)}

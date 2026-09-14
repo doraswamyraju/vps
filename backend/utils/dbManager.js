@@ -120,9 +120,11 @@ const initDatabase = async () => {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 plan_id INT,
+                plan_name VARCHAR(100) DEFAULT 'Standard Plan',
                 status ENUM('active', 'past_due', 'canceled', 'trialing') DEFAULT 'active',
                 amount DECIMAL(10, 2) DEFAULT 0.00,
                 currency VARCHAR(10) DEFAULT 'INR',
+                interval_type VARCHAR(20) DEFAULT 'monthly',
                 payment_gateway VARCHAR(50) DEFAULT 'manual',
                 payment_id VARCHAR(100),
                 current_period_end TIMESTAMP NULL,
@@ -130,6 +132,14 @@ const initDatabase = async () => {
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
+
+        // Check if columns exist and add if missing
+        try {
+            await connection.query("ALTER TABLE subscriptions ADD COLUMN plan_name VARCHAR(100) DEFAULT 'Standard Plan' AFTER plan_id");
+        } catch (e) {}
+        try {
+            await connection.query("ALTER TABLE subscriptions ADD COLUMN interval_type VARCHAR(20) DEFAULT 'monthly' AFTER currency");
+        } catch (e) {}
 
         // Seed Default Super Admin if no users exist
         const [userRows] = await connection.query("SELECT COUNT(*) as count FROM users WHERE role = 'superadmin'");
