@@ -20,8 +20,13 @@ router.post('/login', async (req, res) => {
         const [rows] = await connection.query(`
             SELECT u.id, u.name, u.username, u.email, u.password, u.role, u.status,
                    q.display_disk_gb, q.display_memory_gb, q.display_cpu_cores, q.display_bandwidth_gb,
-                   p.id as plan_id, p.name as plan_name, p.price as plan_price, p.interval_type as plan_interval, p.currency as plan_currency,
-                   s.status as subscription_status, s.current_period_end
+                   p.id as plan_id,
+                   COALESCE(s.plan_name, p.name, 'Custom Cloud Plan') as plan_name,
+                   COALESCE(s.amount, p.price, 0) as plan_price,
+                   COALESCE(s.interval_type, p.interval_type, 'monthly') as plan_interval,
+                   COALESCE(s.currency, p.currency, 'INR') as plan_currency,
+                   COALESCE(s.status, 'active') as subscription_status,
+                   s.current_period_end as renewal_date
             FROM users u
             LEFT JOIN user_quotas q ON u.id = q.user_id
             LEFT JOIN plans p ON q.plan_id = p.id
@@ -48,12 +53,12 @@ router.post('/login', async (req, res) => {
                     role: user.role,
                     plan: {
                         id: user.plan_id,
-                        name: user.plan_name || 'Standard Cloud',
-                        price: user.plan_price || 0,
-                        interval: user.plan_interval || 'monthly',
-                        currency: user.plan_currency || 'INR',
-                        status: user.subscription_status || 'active',
-                        renewal_date: user.current_period_end
+                        name: user.plan_name,
+                        price: parseFloat(user.plan_price) || 0,
+                        interval: user.plan_interval,
+                        currency: user.plan_currency,
+                        status: user.subscription_status,
+                        renewal_date: user.renewal_date
                     },
                     quotas: {
                         display_disk_gb: user.display_disk_gb || 50,
@@ -113,8 +118,13 @@ router.get('/profile', authMiddleware, async (req, res) => {
         const [rows] = await connection.query(`
             SELECT u.id, u.name, u.username, u.email, u.role, u.status, u.created_at,
                    q.display_disk_gb, q.display_memory_gb, q.display_cpu_cores, q.display_bandwidth_gb,
-                   p.name as plan_name, p.price as plan_price, p.currency as plan_currency, p.interval_type as plan_interval,
-                   s.status as subscription_status, s.current_period_end
+                   p.id as plan_id,
+                   COALESCE(s.plan_name, p.name, 'Custom Cloud Plan') as plan_name,
+                   COALESCE(s.amount, p.price, 0) as plan_price,
+                   COALESCE(s.currency, p.currency, 'INR') as plan_currency,
+                   COALESCE(s.interval_type, p.interval_type, 'monthly') as plan_interval,
+                   COALESCE(s.status, 'active') as subscription_status,
+                   s.current_period_end as renewal_date
             FROM users u
             LEFT JOIN user_quotas q ON u.id = q.user_id
             LEFT JOIN plans p ON q.plan_id = p.id
@@ -128,6 +138,7 @@ router.get('/profile', authMiddleware, async (req, res) => {
             return res.json({
                 user: {
                     ...user,
+                    plan_price: parseFloat(user.plan_price) || 0,
                     resources: resources.map(r => ({
                         type: r.resource_type,
                         identifier: r.resource_identifier,

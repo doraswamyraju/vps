@@ -135,22 +135,31 @@ const Profile = () => {
                             <h3 className="text-2xl font-extrabold text-white mt-1">
                                 {isSuperAdmin ? 'Super Administrator' : (profile?.plan_name || 'Standard Hosting')}
                             </h3>
-                            {!isSuperAdmin && profile?.plan_price && (
-                                <p className="text-sm text-gray-400 mt-0.5">
-                                    {profile?.plan_currency === 'INR' ? '₹' : '$'}{profile?.plan_price} / {profile?.plan_interval || 'month'}
-                                </p>
+                            {!isSuperAdmin && (
+                                <div className="mt-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                                    <p className="text-[11px] text-emerald-400 font-semibold uppercase tracking-wider">Subscription Rate</p>
+                                    <div className="text-2xl font-bold text-white mt-0.5 font-mono">
+                                        {profile?.plan_currency === 'INR' ? '₹' : '$'}{profile?.plan_price !== undefined ? profile.plan_price : 0}
+                                        <span className="text-xs font-normal text-gray-400 font-sans"> / {profile?.plan_interval || 'monthly'}</span>
+                                    </div>
+                                </div>
                             )}
                         </div>
 
                         {/* Renewal Timeline */}
-                        <div className="bg-gray-950/60 border border-gray-800 rounded-xl p-3.5 flex items-center gap-3">
-                            <Calendar className="w-5 h-5 text-blue-400 flex-shrink-0" />
-                            <div>
-                                <p className="text-[11px] text-gray-400">Account Role</p>
-                                <p className="text-xs font-semibold text-white capitalize">
-                                    {profile?.role === 'superadmin' ? 'Super Administrator' : 'Resource Admin'}
-                                </p>
+                        <div className="bg-gray-950/60 border border-gray-800 rounded-xl p-3.5 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Calendar className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                                <div>
+                                    <p className="text-[11px] text-gray-400">Next Renewal / Expiry</p>
+                                    <p className="text-xs font-semibold text-white">
+                                        {profile?.renewal_date ? new Date(profile.renewal_date).toLocaleDateString() : 'Active / Continuous'}
+                                    </p>
+                                </div>
                             </div>
+                            <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-mono capitalize">
+                                {profile?.role === 'superadmin' ? 'Super Admin' : 'Client Admin'}
+                            </span>
                         </div>
                     </div>
 
