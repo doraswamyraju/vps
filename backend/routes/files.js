@@ -99,19 +99,30 @@ router.get('/list', async (req, res) => {
     }
 });
 
+// Cache for storage breakdown to prevent high CPU churn
+const breakdownCache = new Map();
+const CACHE_TTL_MS = 60 * 1000; // 1 minute
+
 // 2. Disk Storage Breakdown for a directory
 router.get('/storage-breakdown', async (req, res) => {
     const rawPath = req.query.path || '/';
     const currentPath = resolveSafePath(rawPath);
 
+    // Check cache
+    const cached = breakdownCache.get(currentPath);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+        return res.json(cached.data);
+    }
+
     if (os.platform() !== 'win32') {
-        // Linux / Unix fast breakdown using `du`
+        // Linux / Unix fast breakdown using `nice` + `timeout` with virtual kernel filesystem excludes
         const escapedPath = `"${currentPath.replace(/"/g, '\\"')}"`;
-        const cmd = `du -sk ${escapedPath}/* ${escapedPath}/.[!.]* 2>/dev/null | sort -rn | head -n 30`;
+        const excludes = `--exclude=/proc --exclude=/sys --exclude=/dev --exclude=/run --exclude=/var/lib/docker`;
+        const cmd = `nice -n 19 timeout 6s du -sk ${excludes} ${escapedPath}/* ${escapedPath}/.[!.]* 2>/dev/null | sort -rn | head -n 30`;
 
         exec(cmd, { maxBuffer: 1024 * 1024 * 5 }, async (error, stdout, stderr) => {
             const results = [];
-            if (!error && stdout) {
+            if (stdout) {
                 const lines = stdout.trim().split('\n');
                 for (const line of lines) {
                     const match = line.trim().match(/^(\d+)\s+(.+)$/);
@@ -119,6 +130,10 @@ router.get('/storage-breakdown', async (req, res) => {
                         const sizeKb = parseInt(match[1], 10);
                         const itemPath = match[2];
                         const name = path.basename(itemPath);
+                        // Skip virtual/pseudo mount points
+                        if (['proc', 'sys', 'dev', 'run'].includes(name) && currentPath === '/') {
+                            continue;
+                        }
                         let isDir = false;
                         try {
                             isDir = fs.statSync(itemPath).isDirectory();
@@ -134,20 +149,24 @@ router.get('/storage-breakdown', async (req, res) => {
                 }
             }
 
-            // If empty or command had no entries (e.g. empty directory), fallback to direct readdir
+            // If empty or command timed out, fallback to instant shallow scan
             if (results.length === 0) {
                 return fallbackBreakdown(currentPath, res);
             }
 
             const totalSize = results.reduce((acc, curr) => acc + curr.sizeBytes, 0);
-            return res.json({
+            const responseData = {
                 currentPath,
                 totalAnalyzedBytes: totalSize,
                 items: results.map(item => ({
                     ...item,
                     percent: totalSize > 0 ? ((item.sizeBytes / totalSize) * 100).toFixed(1) : '0.0'
                 }))
-            });
+            };
+
+            // Save in cache
+            breakdownCache.set(currentPath, { timestamp: Date.now(), data: responseData });
+            return res.json(responseData);
         });
     } else {
         // Windows fallback
