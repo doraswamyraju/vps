@@ -8,6 +8,7 @@ const appsRoutes = require('./routes/apps');
 const dbRoutes = require('./routes/db');
 const mongodbRoutes = require('./routes/mongodb');
 const logsRoutes = require('./routes/logs');
+const filesRoutes = require('./routes/files');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ app.use('/api/apps', appsRoutes);
 app.use('/api/db', dbRoutes);
 app.use('/api/mongodb', mongodbRoutes);
 app.use('/api/logs', logsRoutes);
+app.use('/api/files', filesRoutes);
 
 app.get('/', (req, res) => {
     res.send('VPS Dashboard API is running');

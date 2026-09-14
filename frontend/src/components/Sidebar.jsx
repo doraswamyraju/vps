@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Server, Database, ScrollText, LogOut } from 'lucide-react';
+import { LayoutDashboard, Server, Database, ScrollText, FolderOpen, LogOut } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
 const Sidebar = () => {
@@ -9,6 +9,7 @@ const Sidebar = () => {
     const navItems = [
         { path: '/', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/apps', label: 'Apps (PM2)', icon: Server },
+        { path: '/files', label: 'File Manager', icon: FolderOpen },
         { path: '/db', label: 'MySQL', icon: Database },
         { path: '/mongodb', label: 'MongoDB', icon: Database },
         { path: '/logs', label: 'Logs', icon: ScrollText },
