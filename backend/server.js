@@ -35,9 +35,11 @@ app.get('/', (req, res) => {
 
 const { startStatsCollection } = require('./utils/statsCollector');
 const { initDatabase } = require('./utils/dbManager');
+const { startCrashMonitor } = require('./utils/pm2CrashMonitor');
 
 app.listen(PORT, async () => {
     console.log(`Server listening on port ${PORT}`);
     startStatsCollection();
+    startCrashMonitor();
     await initDatabase();
 });

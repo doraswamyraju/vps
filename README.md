@@ -23,13 +23,14 @@ A modern, fast, and feature-rich VPS Control Panel built with **Node.js, Express
 4. **⚡ Live System Monitoring & PM2 App Manager**
    - Live CPU, Memory, Disk, and Uptime metrics.
    - Interactive PM2 Process Manager (Start, Stop, Restart, and live application logs).
+   - **PM2 Crash Sentinel & CPU Protection**: Auto-pauses apps that crash 5+ times in 60s to prevent 100% CPU spikes, with instant HTML email alerts containing error log stack traces. See [PM2_CRASH_SENTINEL_GUIDE.md](PM2_CRASH_SENTINEL_GUIDE.md).
    - MySQL & MongoDB health monitor with database sizes, uptime, active connections, and table counts.
 
 ---
 
 ## 🚀 Deployment
 
-See [VPS_COMMANDS.md](VPS_COMMANDS.md) for full deployment instructions and troubleshooting guide.
+See [VPS_COMMANDS.md](VPS_COMMANDS.md) for full deployment instructions and [PM2_CRASH_SENTINEL_GUIDE.md](PM2_CRASH_SENTINEL_GUIDE.md) for crash sentinel documentation.
 
 ### Quick Deploy Command:
 ```bash
